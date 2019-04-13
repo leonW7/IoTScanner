@@ -62,7 +62,6 @@ def parse_xml(str_xml):
             if tree_one.tag == "linkurl":
                 type_url = tree_one.text
 
-        print("type_name : {}\ttype_url : {}".format(type_name, type_url))
         type_dict[type_name] = type_url
 
     return type_dict
@@ -102,26 +101,21 @@ def get_details_url(url):
     return response
 
 
-def get_download_url(type_name, selector, topfire=" .topfire"):
+def get_download_url(type_name, response):
     global ROUTE_INFO_LIST
-    down_selector = selector.css(".sizerightdownload .topfire{}".format(topfire))
-    topfire = topfire + " .topfire"
-    down_list = down_selector.extract()
-    if len(down_list) >= 2:
-        downdomhtml = down_list[0]
-        down_selector = Selector(text=downdomhtml)
-        version_href_link = down_selector.css(".toprihgt a::attr(href)").extract()[0]
-        version_name = down_selector.css(".toprihgt a::text").extract()[0]
-        ROUTE_INFO_LIST.append(Route_info(type_name,version_name,version_href_link))
-        get_download_url(type_name,selector, topfire)
-    elif len(down_list) == 1:
-        downdomhtml = down_list[0]
-        down_selector = Selector(text=downdomhtml)
-        version_name = down_selector.css(".toprihgt a::text").extract()[0]
-        version_href_link = down_selector.css(".toprihgt a::attr(href)").extract()[0]
-        ROUTE_INFO_LIST.append(Route_info(type_name, version_name, version_href_link))
-    # else:
-    #     return ROUTE_INFO_LIST
+    download_selector = Selector(text=response)
+    firm_selector = download_selector.css(".content table tbody tr")
+    downloadurls = firm_selector.css(".linkblue a::attr(href)").extract()
+    if downloadurls:
+        for url in downloadurls:
+            suffix = url.split(".")[-1]
+            if suffix.lower() == "zip" or suffix.lower() == "img" or suffix.lower() == "chk" or suffix.lower() == "bin":
+                version_href_url = url
+                version_name = url.split("/")[-1]
+                version_name = version_name.split("."+suffix)[0]
+                ROUTE_INFO_LIST.append(Route_info(type_name,version_name,version_href_url))
+            else:
+                continue
 
 
 def download_firmware(save_path, firmware_name, url):
@@ -178,34 +172,27 @@ if __name__ == "__main__":
     wait_todo = []
     response = get_xml()
     type_dict = parse_xml(response)
+    # 暂时不知道如何提取出产品信息， （R2000 为路由器还是网关设备）
     type_dict = get_need_list(type_dict)
     for key, value in type_dict.items():
-        type_dict[key] = base_url + type_dict[key]
+        type_dict[key] = base_url + type_dict[key].replace("Detail", "More")
 
-    # 循环两次方便启用多线程
     for key, value in type_dict.items():
-        response = get_details_url(type_dict[key])
-        print("Being processed {}".format(type_dict[key]))
-        selector = Selector(text=response)
-        get_download_url(key,selector)
-
-    for route in ROUTE_INFO_LIST[:]:
-        if not route.url.endswith('img'):
-            ROUTE_INFO_LIST.remove(route)
-        else:
-            #print(route)
-            pass
+        print("key : {} \t value : {}".format(key, value))
+        response = get_details_url(value)
+        get_download_url(key, response)
 
     for route in ROUTE_INFO_LIST:
-        print(route)
+        print("{} {} {} {}".format(route.route_type, route.version, route.url, route.firmware_name))
 
     with futures.ThreadPoolExecutor(max_workers=10) as exector:
         for route in ROUTE_INFO_LIST:
             if route.firmware_name not in files_dict.get(route.route_type, []):
-                savepath = SAVE_PATH + route.route_type
+                savepath = SAVE_PATH + route.route_type.replace(' ', '_')
 
                 if not os.path.exists(savepath):
                     os.makedirs(savepath)
+
                 future = exector.submit(download_firmware, savepath, route.firmware_name, route.url)
                 wait_todo.append(future)
 
