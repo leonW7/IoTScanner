@@ -125,7 +125,7 @@ def download_firmware(save_path, firmware_name, url):
     :param url: firmware download url
     :return:
     """
-    savepath = save_path + "\\" + firmware_name
+    savepath = save_path + "/" + firmware_name
     print('%s\n --->>>\n  %s' % (url, savepath))
     startTime = time.time()
 
