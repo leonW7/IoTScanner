@@ -7,6 +7,7 @@
 
 - D-Link : 为D-Link固件爬虫
 - Netgear : 为Netgear爬虫
+- luyoudashi : 为路由大师站点固件爬虫
 
 #### keywordCrawler
 fofa, zoomcat, zoomeye关键字爬虫
